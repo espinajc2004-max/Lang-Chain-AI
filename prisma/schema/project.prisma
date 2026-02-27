@@ -1,0 +1,25 @@
+/// This model contains an expression index which requires additional setup for migrations. Visit https://pris.ly/d/expression-indexes for more info.
+model Project {
+  id                     String      @id @default(cuid())
+  project_name           String
+  client_name            String
+  location               String
+  start_date             DateTime
+  end_date               DateTime?
+  status                 String
+  isArchived             Boolean     @default(false)
+  created_at             DateTime    @default(now())
+  updated_at             DateTime    @updatedAt
+  estimated_volume       Float?
+  standard_load          Float       @default(20.0)
+  locationId             String?
+  created_from_quotation Boolean?    @default(false)
+  quotation_id           String?
+  cashFlows              CashFlow[]
+  expenses               Expenses[]
+  projectLocation        Location?   @relation("ProjectLocation", fields: [locationId], references: [id])
+  quotations             Quotation[]
+  trips                  Trip[]
+
+  @@index([locationId])
+}

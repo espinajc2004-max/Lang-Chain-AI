@@ -1,0 +1,23 @@
+model CompanyProfile {
+  id                    String   @id @default(cuid())
+  name                  String
+  address               String?
+  contactNumber         String?
+  email                 String?
+  about                 String?
+  mission               String?
+  vision                String?
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+  tagline               String?
+  CompanyCertifications String[]
+  CompanyHighlights     String[]
+  city                  String?
+  mobile                String?
+  province              String?
+  zipCode               String?
+  SocialMediaLinks      String[]
+  portfolioUrl          String?
+
+  @@map("company_profile")
+}

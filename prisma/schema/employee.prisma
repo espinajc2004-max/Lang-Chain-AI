@@ -1,0 +1,36 @@
+model EmployeeProfile {
+  id            String        @id @default(uuid())
+  fullName      String
+  role          Role
+  isActive      Boolean       @default(true)
+  userId        String        @unique
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  createdBy     String?
+  driverStatus  DriverStatus? @default(AVAILABLE)
+  locationId    String?
+  createdByUser User?         @relation("CreatedEmployees", fields: [createdBy], references: [id])
+  location      Location?     @relation("LocationEmployees", fields: [locationId], references: [id])
+  user          User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([isActive])
+  @@index([locationId])
+  @@index([driverStatus])
+  @@map("employee_profile")
+}
+
+enum Role {
+  SUPER_ADMIN
+  ADMIN
+  ACCOUNTANT
+  ENCODER
+  DISPATCHER
+  MECHANIC
+  DRIVER
+}
+
+enum DriverStatus {
+  AVAILABLE
+  ON_TRIP
+  INACTIVE
+}

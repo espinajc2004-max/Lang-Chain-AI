@@ -1,0 +1,22 @@
+model Notification {
+  id        String           @id @default(cuid())
+  userId    String
+  type      NotificationType
+  title     String
+  message   String
+  link      String?
+  read      Boolean          @default(false)
+  createdAt DateTime         @default(now())
+  user      User             @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([read])
+}
+
+enum NotificationType {
+  PROJECT_CREATED
+  TRIP_SCHEDULED
+  TRIP_DELIVERED
+  ALL_DELIVERED
+  BILLING_GENERATED
+}

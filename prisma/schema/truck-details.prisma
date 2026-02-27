@@ -1,0 +1,25 @@
+model TruckDetails {
+  id             String          @id @default(cuid())
+  plateNumber    String
+  truckType      String
+  capacity       Float
+  model          String
+  remarks        String?
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  year           Int
+  status         TruckStatus?
+  locationId     String?
+  quotationItems QuotationItem[]
+  trips          Trip[]          @relation("TripTruck")
+  location       Location?       @relation("LocationTrucks", fields: [locationId], references: [id])
+
+  @@index([locationId])
+}
+
+enum TruckStatus {
+  ACTIVE
+  MAINTENANCE
+  ONGOING
+  COMPLETED
+}

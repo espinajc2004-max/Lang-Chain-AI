@@ -1,0 +1,28 @@
+model Expenses {
+  // Existing fields (unchanged)
+  id          String                 @id @default(cuid())
+  file_name   String
+  description String
+  user_date   DateTime
+  created_at  DateTime               @default(now())
+  end_date    DateTime?
+  updated_at  DateTime               @updatedAt
+  project_id  String
+  createdBy   String
+  isArchived  Boolean                @default(false)
+  project     Project                @relation(fields: [project_id], references: [id], onDelete: Cascade)
+  customTable ExpensesTableTemplate?
+
+  // Status workflow fields (additive only)
+  status           String    @default("DRAFT")
+  encoder_id       String?
+  accountant_id    String?
+  admin_id         String?
+  encoder_notes    String?
+  accountant_notes String?
+  admin_notes      String?
+  rejection_reason String?
+  submitted_at     DateTime?
+  verified_at      DateTime?
+  approved_at      DateTime?
+}

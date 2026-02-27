@@ -1,0 +1,60 @@
+model QuotationRequest {
+  id                  String        @id @default(cuid())
+  firstName           String
+  lastName            String
+  companyName         String?
+  email               String
+  contactNumber       String
+  projectName         String
+  projectLocation     String?       @map("projectLocation")
+  estimatedStartDate  String?
+  projectDuration     String?
+  deliveryAddress     String
+  selectedProducts    String[]
+  specialRequirements String?
+  status              RequestStatus @default(PENDING)
+  userId              String?
+  createdAt           DateTime      @default(now())
+  updatedAt           DateTime      @updatedAt
+  productQuantities   Json?
+  region              String?
+  province            String?
+  city                String?
+  barangay            String?
+  zipCode             String?       @map("zip_code")
+  projectType         String?       @map("project_type")
+  deliverySchedule    String?       @map("delivery_schedule")
+  estimatedDistance   Decimal?      @map("estimated_distance") @db.Decimal(10, 2)
+  active_quotation_id String?       @map("active_quotation_id")
+  rejection_count     Int           @default(0) @map("rejection_count")
+  last_rejected_at    DateTime?     @map("last_rejected_at")
+  activeQuotation     Quotation?    @relation(fields: [active_quotation_id], references: [id])
+
+  @@index([active_quotation_id])
+  @@map("quotation_request")
+}
+
+model BrochureRequest {
+  id            String        @id @default(cuid())
+  firstName     String
+  lastName      String
+  companyName   String?
+  email         String
+  contactNumber String
+  purpose       String
+  message       String?
+  status        RequestStatus @default(PENDING)
+  userId        String?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  @@map("brochure_request")
+}
+
+enum RequestStatus {
+  PENDING
+  REVIEWED
+  APPROVED
+  REJECTED
+  COMPLETED
+}

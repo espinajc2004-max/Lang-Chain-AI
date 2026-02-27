@@ -1,0 +1,18 @@
+model Billing {
+  id            String    @id @default(cuid())
+  billingNumber String    @unique
+  quotationId   String    @unique
+  clientId      String
+  subtotal      Float
+  tax           Float
+  total         Float
+  billingDate   DateTime
+  generatedAt   DateTime  @default(now())
+  pdfUrl        String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  quotation     Quotation @relation(fields: [quotationId], references: [id])
+
+  @@index([quotationId])
+  @@index([clientId])
+}

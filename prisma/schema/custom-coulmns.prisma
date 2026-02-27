@@ -1,0 +1,76 @@
+model GlobalTableTemplate {
+  id          String         @id @default(cuid())
+  name        String         @default("Default Template")
+  createdBy   String
+  created_at  DateTime       @default(now())
+  updated_at  DateTime       @updatedAt
+  module_type String         @unique @default("EXPENSES")
+  columns     GlobalColumn[]
+}
+
+model GlobalColumn {
+  id           String              @id @default(cuid())
+  template_id  String
+  name         String
+  data_type    String
+  is_visible   Boolean             @default(true)
+  order        Int
+  createdBy    String
+  created_at   DateTime            @default(now())
+  updated_at   DateTime            @updatedAt
+  is_protected Boolean             @default(false)
+  template     GlobalTableTemplate @relation(fields: [template_id], references: [id], onDelete: Cascade)
+
+  @@index([template_id])
+}
+
+model ExpensesTableTemplate {
+  id         String           @id @default(cuid())
+  name       String
+  expense_id String           @unique
+  createdBy  String
+  created_at DateTime         @default(now())
+  updated_at DateTime         @updatedAt
+  columns    ExpensesColumn[]
+  expense    Expenses         @relation(fields: [expense_id], references: [id], onDelete: Cascade)
+}
+
+model ExpensesColumn {
+  id           String                @id @default(cuid())
+  template_id  String
+  name         String
+  data_type    String
+  source       ColumnSource          @default(GLOBAL)
+  is_visible   Boolean               @default(true)
+  is_deleted   Boolean               @default(false)
+  is_protected Boolean               @default(false)
+  order        Int
+  createdBy    String
+  created_at   DateTime              @default(now())
+  updated_at   DateTime              @updatedAt
+  values       ExpensesCellValue[]
+  template     ExpensesTableTemplate @relation(fields: [template_id], references: [id], onDelete: Cascade)
+
+  @@index([template_id])
+}
+
+/// This model contains an expression index which requires additional setup for migrations. Visit https://pris.ly/d/expression-indexes for more info.
+model ExpensesCellValue {
+  id         String         @id @default(cuid())
+  column_id  String
+  row_id     String
+  value      String
+  createdBy  String
+  created_at DateTime       @default(now())
+  updated_at DateTime       @updatedAt
+  column     ExpensesColumn @relation(fields: [column_id], references: [id], onDelete: Cascade)
+
+  @@unique([column_id, row_id])
+  @@index([row_id])
+  @@index([column_id])
+}
+
+enum ColumnSource {
+  GLOBAL
+  CUSTOM
+}

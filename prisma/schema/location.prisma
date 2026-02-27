@@ -1,0 +1,21 @@
+model Location {
+  id        String            @id @default(cuid())
+  name      String
+  slug      String            @unique
+  code      String            @unique
+  address   String?
+  city      String
+  province  String?
+  region    String?
+  isActive  Boolean           @default(true)
+  createdAt DateTime          @default(now())
+  updatedAt DateTime          @updatedAt
+  projects  Project[]         @relation("ProjectLocation")
+  trucks    TruckDetails[]    @relation("LocationTrucks")
+  employees EmployeeProfile[] @relation("LocationEmployees")
+
+  @@index([slug])
+  @@index([isActive])
+  @@index([city])
+  @@map("locations")
+}

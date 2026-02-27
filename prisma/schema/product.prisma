@@ -1,0 +1,16 @@
+model Product {
+  id                String           @id @default(cuid())
+  name              String
+  description       String?
+  image             String?
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+  cubicMeters       Float?
+  productCategoryId String?
+  specification     String?
+  isArchived        Boolean          @default(false)
+  price             Float?           @default(650)
+  productCategory   ProductCategory? @relation(fields: [productCategoryId], references: [id])
+
+  @@map("product")
+}

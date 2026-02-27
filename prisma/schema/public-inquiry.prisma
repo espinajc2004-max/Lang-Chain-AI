@@ -1,0 +1,36 @@
+model PublicInquiry {
+  id                String        @id @default(cuid())
+  type              InquiryType   @default(GENERAL)
+  status            InquiryStatus @default(PENDING)
+  fullName          String
+  email             String
+  phone             String?
+  company           String?
+  subject           String
+  message           String
+  projectLocation   String?
+  estimatedVolume   String?
+  preferredProducts String[]
+  notes             String?
+  respondedAt       DateTime?
+  respondedBy       String?
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+
+  @@index([status])
+  @@index([type])
+  @@map("public_inquiry")
+}
+
+enum InquiryType {
+  QUOTATION
+  BROCHURE
+  GENERAL
+}
+
+enum InquiryStatus {
+  PENDING
+  REVIEWED
+  CONTACTED
+  CLOSED
+}

@@ -1,0 +1,60 @@
+model CashFlow {
+  id          String               @id @default(cuid())
+  file_name   String
+  description String
+  user_date   DateTime
+  created_at  DateTime             @default(now())
+  end_date    DateTime?
+  updated_at  DateTime             @updatedAt
+  project_id  String
+  createdBy   String
+  isArchived  Boolean              @default(false)
+  project     Project              @relation(fields: [project_id], references: [id], onDelete: Cascade)
+  customTable CashFlowCustomTable?
+}
+
+model CashFlowCustomTable {
+  id           String           @id @default(cuid())
+  name         String
+  cash_flow_id String           @unique
+  createdBy    String
+  created_at   DateTime         @default(now())
+  updated_at   DateTime         @updatedAt
+  columns      CashFlowColumn[]
+  cashFlow     CashFlow         @relation(fields: [cash_flow_id], references: [id], onDelete: Cascade)
+}
+
+model CashFlowColumn {
+  id           String              @id @default(cuid())
+  template_id  String
+  name         String
+  data_type    String
+  source       ColumnSource        @default(GLOBAL)
+  is_visible   Boolean             @default(true)
+  is_deleted   Boolean             @default(false)
+  order        Int
+  createdBy    String
+  created_at   DateTime            @default(now())
+  updated_at   DateTime            @updatedAt
+  is_protected Boolean             @default(false)
+  values       CashFlowCellValue[]
+  template     CashFlowCustomTable @relation(fields: [template_id], references: [id], onDelete: Cascade)
+
+  @@index([template_id])
+}
+
+/// This model contains an expression index which requires additional setup for migrations. Visit https://pris.ly/d/expression-indexes for more info.
+model CashFlowCellValue {
+  id         String         @id @default(cuid())
+  column_id  String
+  row_id     String
+  value      String
+  createdBy  String
+  created_at DateTime       @default(now())
+  updated_at DateTime       @updatedAt
+  column     CashFlowColumn @relation(fields: [column_id], references: [id], onDelete: Cascade)
+
+  @@unique([column_id, row_id])
+  @@index([row_id])
+  @@index([column_id])
+}

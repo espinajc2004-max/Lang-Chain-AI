@@ -1,0 +1,81 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id                   String              @id @default(cuid())
+  username             String              @unique
+  name                 String
+  email                String?             @unique
+  emailVerified        Boolean             @default(false)
+  image                String?
+  createdAt            DateTime            @default(now())
+  updatedAt            DateTime            @updatedAt
+  displayUsername      String?
+  userType             UserType            @default(CLIENT)
+  notifications        Notification[]
+  accounts             Account[]
+  createdEmployees     EmployeeProfile[]   @relation("CreatedEmployees")
+  employee             EmployeeProfile?
+  password_reset_codes PasswordResetCode[]
+  sessions             Session[]
+
+  @@map("user")
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  expiresAt DateTime
+  userId    String
+  ipAddress String?
+  userAgent String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("session")
+}
+
+model Account {
+  id                    String    @id @default(cuid())
+  providerId            String
+  accountId             String
+  userId                String
+  accessToken           String?
+  refreshToken          String?
+  idToken               String?
+  scope                 String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  password              String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([providerId, accountId])
+  @@index([userId])
+  @@map("account")
+}
+
+model Verification {
+  id         String   @id @default(cuid())
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([identifier])
+  @@map("verification")
+}
+
+enum UserType {
+  COMPANY
+  CLIENT
+}

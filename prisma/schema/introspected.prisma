@@ -1,0 +1,43 @@
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model ai_documents {
+  id              String                   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  source_table    String
+  source_id       String
+  file_id         String?
+  file_name       String?
+  project_id      String?
+  project_name    String?
+  searchable_text String
+  metadata        Json?                    @default("{}")
+  search_vector   Unsupported("tsvector")? @default(dbgenerated("to_tsvector('english'::regconfig, ((COALESCE(searchable_text, ''::text) || ' '::text) || COALESCE(file_name, ''::text)))"))
+  created_at      DateTime?                @default(now()) @db.Timestamp(6)
+  updated_at      DateTime?                @default(now()) @db.Timestamp(6)
+  embedding       Unsupported("vector")?
+
+  @@unique([source_table, source_id], map: "unique_source")
+  @@index([embedding])
+  @@index([project_id], map: "idx_ai_documents_project")
+  @@index([search_vector], map: "idx_ai_documents_search", type: Gin)
+  @@index([source_table], map: "idx_ai_documents_source")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model conversation_turns {
+  id            String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  session_id    String    @db.Uuid
+  user_id       String    @db.Uuid
+  turn_number   Int
+  query_text    String
+  response_text String
+  created_at    DateTime? @default(now()) @db.Timestamptz(6)
+  metadata      Json?     @default("{}")
+
+  @@unique([session_id, turn_number], map: "unique_session_turn")
+  @@index([created_at], map: "idx_cleanup")
+  @@index([created_at], map: "idx_created_at")
+  @@index([session_id], map: "idx_session_id")
+  @@index([user_id, session_id], map: "idx_user_sessions")
+}

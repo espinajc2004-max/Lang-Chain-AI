@@ -1,0 +1,35 @@
+model Trip {
+  id                   String        @id @default(cuid())
+  projectId            String
+  source               String
+  destination          String
+  volume               Float
+  status               String        @default("DRAFT")
+  scheduledDate        DateTime
+  startDate            DateTime?
+  endDate              DateTime?
+  driverId             String?
+  truckId              String?
+  notes                String?
+  externalDriver       String?
+  externalHauler       String?
+  externalPlate        String?
+  tripType             String        @default("INTERNAL")
+  material             String?
+  quarryLocation       String?
+  drNumber             String?
+  assignedDispatcherId String?
+  submittedBy          String?
+  submittedAt          DateTime?
+  cancellationReason   String?
+  modifiedBy           String?
+  modifiedAt           DateTime?
+  modificationReason   String?
+  pendingModification  Json?
+  modificationStatus   String?
+  approvedBy           String?
+  approvedAt           DateTime?
+  rejectionReason      String?
+  project              Project       @relation(fields: [projectId], references: [id])
+  truck                TruckDetails? @relation("TripTruck", fields: [truckId], references: [id])
+}

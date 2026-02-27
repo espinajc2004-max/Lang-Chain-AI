@@ -1,0 +1,48 @@
+model Quotation {
+  id                      String             @id @default(cuid())
+  quote_number            String             @unique
+  project_id              String?
+  quotation_request_id    String?
+  source                  String             @default("WEBSITE")
+  snap_project_name       String?
+  snap_project_location   String?
+  snap_location           String?
+  snap_contact            String?
+  snap_client_name        String?
+  snap_client_email       String?
+  snap_region             String?            @map("snap_region")
+  snap_province           String?            @map("snap_province")
+  snap_city               String?            @map("snap_city")
+  snap_barangay           String?            @map("snap_barangay")
+  snap_zip_code           String?            @map("snap_zip_code")
+  snap_delivery_address   String?            @map("snap_delivery_address")
+  snap_quarry_location    String?            @map("snap_quarry_location")
+  status                  String             @default("DRAFT")
+  adjustment_factor       Float              @default(1)
+  adjustment_reason       String?
+  rejection_reason        String?
+  enocder_id              String
+  accountant_id           String?
+  admin_id                String?
+  encoder_notes           String?
+  accountant_notes        String?
+  admin_notes             String?
+  unit_price              Float              @default(0)
+  subtotal                Float              @default(0)
+  vat_amount              Float              @default(0)
+  total_amount            Float              @default(0)
+  created_at              DateTime           @default(now())
+  updated_at              DateTime           @updatedAt
+  client_status           String?            @default("PENDING")
+  client_viewed_at        DateTime?          @db.Timestamp(6)
+  client_responded_at     DateTime?          @db.Timestamp(6)
+  client_rejection_reason String?
+  project_created         Boolean?           @default(false)
+  billing                 Billing?
+  project                 Project?           @relation(fields: [project_id], references: [id])
+  items                   QuotationItem[]
+  linkedRequests          QuotationRequest[]
+
+  @@index([client_status])
+  @@index([source])
+}

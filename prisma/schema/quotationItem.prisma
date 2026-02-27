@@ -1,0 +1,32 @@
+model QuotationItem {
+  id                    String        @id @default(cuid())
+  quotation_id          String
+  trip_date             DateTime?
+  start_date            DateTime?
+  end_date              DateTime?
+  plate_no              String
+  dr_no                 String        @unique
+  material              String
+  quarry_location       String?
+  truck_type            String?
+  truck_rental          Float         @default(0)
+  truck_id              String?
+  length                Float         @default(0)
+  width                 Float         @default(0)
+  height                Float         @default(0)
+  volume                Float         @default(0)
+  distance_km           Float         @default(0)
+  fuel_cost             Float         @default(0)
+  material_cost         Float         @default(0)
+  line_total            Float         @default(0)
+  created_at            DateTime      @default(now())
+  updated_at            DateTime      @updatedAt
+  client_scheduled_date DateTime?     @db.Timestamp(6)
+  trip_created          Boolean?      @default(false)
+  trip_id               String?
+  quotation             Quotation     @relation(fields: [quotation_id], references: [id], onDelete: Cascade)
+  truck                 TruckDetails? @relation(fields: [truck_id], references: [id])
+
+  @@index([truck_id])
+  @@index([dr_no])
+}
