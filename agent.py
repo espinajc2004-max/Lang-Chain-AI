@@ -11,7 +11,11 @@ Thin module that wires together:
 Both main.py (FastAPI) and chat.py (CLI) import from here.
 """
 
+import json
+import re
 import time
+
+from pydantic import BaseModel, validator
 
 from langchain.agents import create_agent
 from langchain_community.agent_toolkits import SQLDatabaseToolkit
@@ -22,6 +26,100 @@ from prompts import build_system_prompt
 from role_guard import validate_role
 from safe_db import create_safe_db, SafeSQLDatabase
 from suggestions import generate_suggestions, detect_clarification
+
+
+class ChartData(BaseModel):
+    type: str  # "bar" or "pie"
+    labels: list[str]
+    values: list[float]
+
+    @validator("labels")
+    def validate_labels(cls, v):
+        if not v:
+            raise ValueError("labels must be non-empty")
+        return v
+
+    @validator("values")
+    def validate_lengths(cls, v, values):
+        if not v:
+            raise ValueError("values must be non-empty")
+        if "labels" in values and len(v) != len(values["labels"]):
+            raise ValueError("labels and values must have the same length")
+        return v
+
+    @validator("type")
+    def validate_type(cls, v):
+        if v not in ("bar", "pie"):
+            raise ValueError("type must be 'bar' or 'pie'")
+        return v
+
+
+class TableData(BaseModel):
+    headers: list[str]
+    rows: list[list[str]]
+
+    @validator("headers")
+    def validate_headers(cls, v):
+        if not v:
+            raise ValueError("headers must be non-empty")
+        return v
+
+    @validator("rows")
+    def validate_rows(cls, v, values):
+        if "headers" in values:
+            expected_len = len(values["headers"])
+            for i, row in enumerate(v):
+                if len(row) != expected_len:
+                    raise ValueError(
+                        f"Row {i} length {len(row)} != headers length {expected_len}"
+                    )
+        return v
+
+
+CHART_DATA_PATTERN = re.compile(
+    r'\{[^{}]*"type"\s*:\s*"(?:bar|pie)"[^{}]*"labels"\s*:\s*\[.*?\][^{}]*"values"\s*:\s*\[.*?\][^{}]*\}',
+    re.DOTALL,
+)
+TABLE_DATA_PATTERN = re.compile(
+    r'\{[^{}]*"headers"\s*:\s*\[.*?\][^{}]*"rows"\s*:\s*\[.*?\][^{}]*\}',
+    re.DOTALL,
+)
+
+
+def extract_chart_data(text: str) -> tuple[ChartData | None, str]:
+    """Extract and validate chart_data from LLM response text.
+
+    Returns (ChartData or None, cleaned text with JSON block removed).
+    On malformed JSON or validation failure, returns (None, original text).
+    """
+    match = CHART_DATA_PATTERN.search(text)
+    if not match:
+        return None, text
+    try:
+        raw = json.loads(match.group())
+        chart = ChartData(**raw)
+        cleaned = text[: match.start()] + text[match.end() :]
+        return chart, cleaned.strip()
+    except (json.JSONDecodeError, ValueError):
+        return None, text
+
+
+def extract_table_data(text: str) -> tuple[TableData | None, str]:
+    """Extract and validate table_data from LLM response text.
+
+    Returns (TableData or None, cleaned text with JSON block removed).
+    On malformed JSON or validation failure, returns (None, original text).
+    """
+    match = TABLE_DATA_PATTERN.search(text)
+    if not match:
+        return None, text
+    try:
+        raw = json.loads(match.group())
+        table = TableData(**raw)
+        cleaned = text[: match.start()] + text[match.end() :]
+        return table, cleaned.strip()
+    except (json.JSONDecodeError, ValueError):
+        return None, text
 
 
 class AgentExecutor:
@@ -104,6 +202,8 @@ def invoke_agent(
             "metadata": {"query_count": 0, "total_time_ms": 0, "total_rows": 0, "tables_queried": [], "blocked_count": 0},
             "suggestions": clarification["options"],
             "clarification": clarification,
+            "chart_data": None,
+            "table_data": None,
         }
 
     # Reset metadata tracking for this invocation
@@ -144,9 +244,15 @@ def invoke_agent(
         role=role,
     )
 
+    # Extract visualization data from answer
+    chart_data, answer = extract_chart_data(answer)
+    table_data, answer = extract_table_data(answer)
+
     return {
         "answer": answer,
         "metadata": meta,
         "suggestions": suggestions,
         "clarification": None,
+        "chart_data": chart_data,
+        "table_data": table_data,
     }

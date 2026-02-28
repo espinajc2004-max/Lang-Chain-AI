@@ -71,6 +71,25 @@ When user asks for "expenses" or "list of expenses", query the Expenses table an
 
 
 # ---------------------------------------------------------------------------
+# Visualization instructions (chart and table data guidance for the LLM)
+# ---------------------------------------------------------------------------
+
+VISUALIZATION_INSTRUCTIONS = """
+<visualization>
+    <instruction>When the user asks a COMPARISON or AGGREGATION question (e.g., "compare expenses between projects", "expenses per month", "revenue by category"), include a chart_data JSON block in your response.</instruction>
+    <instruction>chart_data format: {"type": "bar" | "pie", "labels": ["Label1", "Label2", ...], "values": [number1, number2, ...]}</instruction>
+    <instruction>Use "bar" for comparisons across categories. Use "pie" for proportional/percentage breakdowns.</instruction>
+    <instruction>When the user asks a LIST or ENUMERATION question (e.g., "list of expenses", "show all cash flow entries"), include a table_data JSON block in your response.</instruction>
+    <instruction>table_data format: {"headers": ["Col1", "Col2", ...], "rows": [["val1", "val2", ...], ...]}</instruction>
+    <instruction>Include ALL relevant columns in table_data headers and ALL matching records in rows.</instruction>
+    <instruction>All values in table_data rows MUST be strings. Format numbers and dates as readable strings.</instruction>
+    <instruction>For simple lookups or status checks, do NOT include chart_data or table_data.</instruction>
+    <instruction>Place the JSON block at the END of your response, after the conversational text.</instruction>
+</visualization>
+"""
+
+
+# ---------------------------------------------------------------------------
 # Role-specific system prompts
 # ---------------------------------------------------------------------------
 
@@ -89,6 +108,7 @@ Help them with:
 
 {schema_guide}
 {instructions}
+{visualization}
 Today is {current_date}
 """,
 
@@ -106,6 +126,7 @@ those are handled by the Accountant role.
 
 {schema_guide}
 {instructions}
+{visualization}
 Today is {current_date}
 """,
 
@@ -125,6 +146,7 @@ those are handled by the Dispatcher and Admin roles.
 
 {schema_guide}
 {instructions}
+{visualization}
 Today is {current_date}
 """,
 }
@@ -147,5 +169,6 @@ def build_system_prompt(role: str) -> str:
     return template.format(
         schema_guide=SCHEMA_GUIDE,
         instructions=BASE_INSTRUCTIONS,
+        visualization=VISUALIZATION_INSTRUCTIONS,
         current_date=datetime.now().strftime("%Y-%m-%d"),
     )

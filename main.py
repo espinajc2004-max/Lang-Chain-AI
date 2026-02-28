@@ -10,7 +10,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
-from agent import create_agent_executor, invoke_agent
+from agent import ChartData, TableData, create_agent_executor, invoke_agent
 from role_guard import VALID_ROLES
 
 load_dotenv()
@@ -65,6 +65,8 @@ class QueryResponse(BaseModel):
     metadata: QueryMetadata
     suggestions: list[str] = []
     clarification: ClarificationResponse | None = None
+    chart_data: ChartData | None = None
+    table_data: TableData | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -94,6 +96,8 @@ async def query_data(req: QueryRequest):
         metadata=QueryMetadata(**result["metadata"]),
         suggestions=result["suggestions"],
         clarification=ClarificationResponse(**result["clarification"]) if result["clarification"] else None,
+        chart_data=result.get("chart_data"),
+        table_data=result.get("table_data"),
     )
 
 
