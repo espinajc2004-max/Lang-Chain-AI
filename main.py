@@ -87,6 +87,9 @@ async def query_data(req: QueryRequest):
         executor = agent_executors[role]
         result = invoke_agent(executor, question, req.conversation_history, role)
     except Exception as exc:
+        import traceback
+        print(f"\n❌ [{role}] Agent error for question: '{question}'")
+        traceback.print_exc()
         raise HTTPException(500, f"Agent error: {exc}")
 
     return QueryResponse(
@@ -108,3 +111,8 @@ async def health():
         "model": os.getenv("GROQ_MODEL", os.getenv("OLLAMA_MODEL", "qwen3:4b")),
         "roles": sorted(VALID_ROLES),
     }
+
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8000)

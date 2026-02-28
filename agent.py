@@ -76,50 +76,131 @@ class TableData(BaseModel):
         return v
 
 
+def _fix_json_quotes(s: str) -> str:
+    """Convert single-quoted JSON to double-quoted JSON.
+
+    LLMs sometimes output {'key': 'value'} instead of {"key": "value"}.
+    This does a best-effort conversion so json.loads() can parse it.
+    """
+    # Replace single quotes around keys and string values with double quotes
+    # Step 1: replace single-quoted strings, being careful with apostrophes
+    result = re.sub(r"'([^']*)'", r'"\1"', s)
+    return result
+
+
+# Broad pattern: find JSON-like blocks that contain chart/table keys
 CHART_DATA_PATTERN = re.compile(
-    r'\{[^{}]*"type"\s*:\s*"(?:bar|pie)"[^{}]*"labels"\s*:\s*\[.*?\][^{}]*"values"\s*:\s*\[.*?\][^{}]*\}',
+    r'\{[^{}]*["\']type["\'][^{}]*["\']labels["\'][^{}]*["\']values["\'][^{}]*\}',
+    re.DOTALL,
+)
+# Also match if keys are in different order
+CHART_DATA_PATTERN_ALT = re.compile(
+    r'\{[^{}]*["\'](?:type|labels|values)["\'].*?["\'](?:type|labels|values)["\'].*?["\'](?:type|labels|values)["\'].*?\}',
     re.DOTALL,
 )
 TABLE_DATA_PATTERN = re.compile(
-    r'\{[^{}]*"headers"\s*:\s*\[.*?\][^{}]*"rows"\s*:\s*\[.*?\][^{}]*\}',
+    r'\{[^{}]*["\']headers["\'][^{}]*["\']rows["\'].*?\}',
     re.DOTALL,
 )
+TABLE_DATA_PATTERN_ALT = re.compile(
+    r'\{[^{}]*["\']rows["\'][^{}]*["\']headers["\'].*?\}',
+    re.DOTALL,
+)
+
+# Also look for labeled blocks like **chart_data**: {...} or chart_data: {...}
+LABELED_CHART_PATTERN = re.compile(
+    r'\*{0,2}chart_data\*{0,2}\s*:\s*(\{.*?\})',
+    re.DOTALL,
+)
+LABELED_TABLE_PATTERN = re.compile(
+    r'\*{0,2}table_data\*{0,2}\s*:\s*(\{.*?\})',
+    re.DOTALL,
+)
+
+
+def _try_parse_json(raw_str: str) -> dict | None:
+    """Try to parse a JSON string, fixing single quotes if needed."""
+    try:
+        return json.loads(raw_str)
+    except json.JSONDecodeError:
+        try:
+            return json.loads(_fix_json_quotes(raw_str))
+        except json.JSONDecodeError:
+            return None
 
 
 def extract_chart_data(text: str) -> tuple[ChartData | None, str]:
     """Extract and validate chart_data from LLM response text.
 
+    Handles both single and double quoted JSON, labeled blocks like
+    **chart_data**: {...}, and keys in any order.
+
     Returns (ChartData or None, cleaned text with JSON block removed).
-    On malformed JSON or validation failure, returns (None, original text).
     """
-    match = CHART_DATA_PATTERN.search(text)
-    if not match:
-        return None, text
-    try:
-        raw = json.loads(match.group())
-        chart = ChartData(**raw)
-        cleaned = text[: match.start()] + text[match.end() :]
-        return chart, cleaned.strip()
-    except (json.JSONDecodeError, ValueError):
-        return None, text
+    # Try labeled pattern first (e.g., **chart_data**: {...})
+    for pattern in [LABELED_CHART_PATTERN]:
+        match = pattern.search(text)
+        if match:
+            raw = _try_parse_json(match.group(1))
+            if raw and "type" in raw and "labels" in raw and "values" in raw:
+                try:
+                    chart = ChartData(**raw)
+                    cleaned = text[: match.start()] + text[match.end() :]
+                    return chart, cleaned.strip()
+                except (ValueError, TypeError):
+                    pass
+
+    # Try unlabeled patterns
+    for pattern in [CHART_DATA_PATTERN, CHART_DATA_PATTERN_ALT]:
+        match = pattern.search(text)
+        if match:
+            raw = _try_parse_json(match.group())
+            if raw and "type" in raw and "labels" in raw and "values" in raw:
+                try:
+                    chart = ChartData(**raw)
+                    cleaned = text[: match.start()] + text[match.end() :]
+                    return chart, cleaned.strip()
+                except (ValueError, TypeError):
+                    pass
+
+    return None, text
 
 
 def extract_table_data(text: str) -> tuple[TableData | None, str]:
     """Extract and validate table_data from LLM response text.
 
+    Handles both single and double quoted JSON, labeled blocks, and
+    keys in any order.
+
     Returns (TableData or None, cleaned text with JSON block removed).
-    On malformed JSON or validation failure, returns (None, original text).
     """
-    match = TABLE_DATA_PATTERN.search(text)
-    if not match:
-        return None, text
-    try:
-        raw = json.loads(match.group())
-        table = TableData(**raw)
-        cleaned = text[: match.start()] + text[match.end() :]
-        return table, cleaned.strip()
-    except (json.JSONDecodeError, ValueError):
-        return None, text
+    # Try labeled pattern first
+    for pattern in [LABELED_TABLE_PATTERN]:
+        match = pattern.search(text)
+        if match:
+            raw = _try_parse_json(match.group(1))
+            if raw and "headers" in raw and "rows" in raw:
+                try:
+                    table = TableData(**raw)
+                    cleaned = text[: match.start()] + text[match.end() :]
+                    return table, cleaned.strip()
+                except (ValueError, TypeError):
+                    pass
+
+    # Try unlabeled patterns
+    for pattern in [TABLE_DATA_PATTERN, TABLE_DATA_PATTERN_ALT]:
+        match = pattern.search(text)
+        if match:
+            raw = _try_parse_json(match.group())
+            if raw and "headers" in raw and "rows" in raw:
+                try:
+                    table = TableData(**raw)
+                    cleaned = text[: match.start()] + text[match.end() :]
+                    return table, cleaned.strip()
+                except (ValueError, TypeError):
+                    pass
+
+    return None, text
 
 
 class AgentExecutor:
@@ -156,7 +237,9 @@ def create_agent_executor(role: str = "ADMIN") -> AgentExecutor:
     llm = create_llm()
     safe_db = create_safe_db(role)
 
-    toolkit = SQLDatabaseToolkit(db=safe_db, llm=llm)
+    # Pass the raw SQLDatabase to the toolkit (Pydantic requires the exact type).
+    # SafeSQLDatabase has already monkey-patched db.run with the safety layer.
+    toolkit = SQLDatabaseToolkit(db=safe_db.db, llm=llm)
     tools = toolkit.get_tools()
 
     system_prompt = build_system_prompt(role)
@@ -220,13 +303,38 @@ def invoke_agent(
     # Invoke with timing
     start = time.perf_counter()
 
+    answer = ""
     for attempt in range(2):
         try:
+            # Reset metadata each attempt so we can detect tool usage
+            executor.safe_db.metadata.reset()
+
             result = executor.invoke({"messages": messages})
             answer = result["messages"][-1].content
+
+            # HALLUCINATION GUARD: If the model responded without calling any
+            # SQL tool (query_count == 0), it likely fabricated data.
+            # Retry once with a stronger nudge to use tools.
+            meta_check = executor.safe_db.metadata.to_dict()
+            if attempt == 0 and meta_check["query_count"] == 0:
+                print(f"  ⚠ [{role}] No SQL tool called — possible hallucination, retrying with nudge...")
+                messages.append(AIMessage(content=answer))
+                messages.append(HumanMessage(
+                    content="You did NOT query the database. You MUST use the sql_db_query tool "
+                            "to search for the answer. Do NOT make up data. Execute a SQL query now."
+                ))
+                continue
+
             break
         except Exception as exc:
-            if attempt == 0 and "incomplete" in str(exc).lower():
+            exc_str = str(exc).lower()
+            # Handle rate limit errors gracefully
+            if "rate_limit" in exc_str or "429" in exc_str or "rate limit" in exc_str:
+                print(f"  ⚠ [{role}] Rate limit hit — returning friendly message")
+                answer = ("I'm temporarily unable to process your request due to API rate limits. "
+                          "Please wait a few minutes and try again.")
+                break
+            if attempt == 0 and "incomplete" in exc_str:
                 print(f"  ⚠ [{role}] Connection dropped, retrying...")
                 continue
             raise
@@ -236,6 +344,13 @@ def invoke_agent(
     # Collect metadata
     meta = executor.safe_db.metadata.to_dict()
     meta["total_response_time_ms"] = round(total_time_ms, 1)
+
+    # Final hallucination check: if still no queries after retry, return safe message
+    if meta["query_count"] == 0:
+        print(f"  ❌ [{role}] No SQL queries executed after retry — returning safe fallback")
+        answer = ("I wasn't able to retrieve data from the database for your query. "
+                  "Could you try rephrasing your question? For example: "
+                  "'show all expenses for [project name]' or 'list all projects'.")
 
     # Generate follow-up suggestions
     suggestions = generate_suggestions(

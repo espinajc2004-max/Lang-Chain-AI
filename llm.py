@@ -49,7 +49,12 @@ def create_llm():
 
     if groq_api_key:
         model = os.getenv("GROQ_MODEL", "qwen/qwen3-32b")
-        llm = ChatGroq(api_key=groq_api_key, model=model, temperature=0.1)
+        llm = ChatGroq(
+            api_key=groq_api_key,
+            model=model,
+            temperature=0,
+            model_kwargs={"top_p": 1},
+        )
         print(f"  ✅ Using Groq API (model: {model})")
         return llm
 

@@ -72,6 +72,10 @@ class SafeSQLDatabase:
              so the toolkit can't even see restricted tables.
     Layer 2: This wrapper validates every query at runtime via
              validate_sql_query() before it hits the database.
+
+    The wrapper monkey-patches the underlying SQLDatabase.run method
+    so that SQLDatabaseToolkit (which requires a real SQLDatabase instance)
+    still routes all queries through the safety layer.
     """
 
     def __init__(self, db: SQLDatabase, role: str):
@@ -79,7 +83,12 @@ class SafeSQLDatabase:
         self._role = validate_role(role)
         self.metadata = QueryMetadata()
 
-    def run(self, command: str, fetch: str = "all", **kwargs):
+        # Monkey-patch the underlying db.run so the toolkit's tools
+        # go through our safety layer automatically
+        self._original_run = db.run
+        db.run = self._safe_run
+
+    def _safe_run(self, command: str, fetch: str = "all", **kwargs):
         """Intercept SQL execution, validate, track metadata, then run."""
         is_valid, error_msg = validate_sql_query(command, self._role)
 
@@ -91,7 +100,7 @@ class SafeSQLDatabase:
             return f"BLOCKED: {error_msg}"
 
         start = time.perf_counter()
-        result = self._db.run(command, fetch=fetch, **kwargs)
+        result = self._original_run(command, fetch=fetch, **kwargs)
         duration_ms = (time.perf_counter() - start) * 1000
 
         # Estimate row count from result
@@ -105,17 +114,10 @@ class SafeSQLDatabase:
         self.metadata.record(command, duration_ms, row_count, tables)
         return result
 
-    def get_usable_table_names(self):
-        """Only return tables this role can access."""
-        return self._db.get_usable_table_names()
-
-    def get_table_info(self, table_names=None):
-        """Only return schema info for allowed tables."""
-        return self._db.get_table_info(table_names)
-
-    def __getattr__(self, name):
-        """Proxy all other attributes to the underlying SQLDatabase."""
-        return getattr(self._db, name)
+    # Expose the underlying SQLDatabase for toolkit compatibility
+    @property
+    def db(self) -> SQLDatabase:
+        return self._db
 
 
 def create_safe_db(role: str) -> SafeSQLDatabase:

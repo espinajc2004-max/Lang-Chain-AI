@@ -182,8 +182,8 @@ def detect_clarification(question: str, role: str) -> dict | None:
     question_lower = question.lower().strip()
     words = question_lower.split()
 
-    # Very short questions (1-2 words) are likely ambiguous
-    if len(words) <= 2:
+    # Only single-word questions are truly ambiguous
+    if len(words) == 1:
         for term, info in AMBIGUOUS_TERMS.items():
             if term in question_lower:
                 # Filter options based on role access
